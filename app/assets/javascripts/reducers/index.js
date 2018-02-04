@@ -22,7 +22,7 @@ import ui from './ui';
 import userCourses from './user_courses';
 import userProfile from './user_profile';
 import users from './users';
-
+import validation from './validation';
 
 const reducer = combineReducers({
   alerts,
@@ -48,7 +48,8 @@ const reducer = combineReducers({
   ui,
   userCourses,
   userProfile,
-  users
+  users,
+  validation
 });
 
 export default reducer;
