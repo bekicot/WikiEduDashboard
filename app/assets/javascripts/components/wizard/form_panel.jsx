@@ -1,12 +1,14 @@
 import React from 'react';
 import createReactClass from 'create-react-class';
 import PropTypes from 'prop-types';
+import { connect } from 'react-redux';
 import Panel from './panel.jsx';
 import DatePicker from '../common/date_picker.jsx';
 import Calendar from '../common/calendar.jsx';
 import CourseActions from '../../actions/course_actions.js';
 import CourseDateUtils from '../../utils/course_date_utils.js';
-import ValidationStore from '../../stores/validation_store.js';
+import { isValid } from '../../utils/validation_utils.js';
+import { setInvalid } from '../../actions/validation_actions.js';
 
 const FormPanel = createReactClass({
   displayName: 'FormPanel',
@@ -36,7 +38,7 @@ const FormPanel = createReactClass({
   },
 
   saveCourse() {
-    if (ValidationStore.isValid()) {
+    if (isValid(this.props.validations, this.props.setInvalid)) {
       CourseActions.persistCourse(this.props, this.props.course.slug);
       return true;
     }
@@ -137,7 +139,15 @@ const FormPanel = createReactClass({
   }
 });
 
-export default FormPanel;
+const mapStateToProps = state => ({
+  validations: state.validation.validations,
+});
+
+const mapDispatchToProps = ({
+  setInvalid,
+});
+
+export default connect(mapStateToProps, mapDispatchToProps)(FormPanel);
 
 function __guard__(value, transform) {
   return (typeof value !== 'undefined' && value !== null) ? transform(value) : undefined;

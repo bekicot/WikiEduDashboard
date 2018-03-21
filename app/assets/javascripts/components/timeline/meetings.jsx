@@ -1,13 +1,15 @@
 import React from 'react';
 import createReactClass from 'create-react-class';
 import PropTypes from 'prop-types';
+import { connect } from 'react-redux';
 import CourseLink from '../common/course_link.jsx';
 import Calendar from '../common/calendar.jsx';
 import Modal from '../common/modal.jsx';
 import DatePicker from '../common/date_picker.jsx';
-import ValidationStore from '../../stores/validation_store.js';
 import CourseActions from '../../actions/course_actions.js';
 import CourseDateUtils from '../../utils/course_date_utils.js';
+import { isValid } from '../../utils/validation_utils.js';
+import { setInvalid } from '../../actions/validation_actions.js';
 
 const Meetings = createReactClass({
   displayName: 'Meetings',
@@ -33,7 +35,7 @@ const Meetings = createReactClass({
   },
 
   saveCourse(e) {
-    if (ValidationStore.isValid()) {
+    if (isValid(this.props.validations, this.props.setInvalid)) {
       return CourseActions.persistCourse({ course: this.props.course }, this.props.course.slug);
     }
     e.preventDefault();
@@ -151,4 +153,12 @@ const Meetings = createReactClass({
 }
 );
 
-export default Meetings;
+const mapStateToProps = state => ({
+  validations: state.validation.validations,
+});
+
+const mapDispatchToProps = ({
+  setInvalid,
+});
+
+export default connect(mapStateToProps, mapDispatchToProps)(Meetings);

@@ -1,10 +1,10 @@
 import React from 'react';
 import createReactClass from 'create-react-class';
 import PropTypes from 'prop-types';
+import { connect } from 'react-redux';
 import Modal from '../common/modal.jsx';
 import CourseStore from '../../stores/course_store.js';
-import ValidationStore from '../../stores/validation_store.js';
-import ValidationActions from '../../actions/validation_actions.js';
+import { setValid, setInvalid, checkServer } from '../../actions/validation_actions.js';
 import CourseActions from '../../actions/course_actions.js';
 import TextInput from '../common/text_input.jsx';
 import DatePicker from '../common/date_picker.jsx';
@@ -12,6 +12,7 @@ import TextAreaInput from '../common/text_area_input.jsx';
 import Calendar from '../common/calendar.jsx';
 import CourseUtils from '../../utils/course_utils.js';
 import CourseDateUtils from '../../utils/course_date_utils.js';
+import { firstMessage, isValid, getValidation } from '../../utils/validation_utils.js';
 
 const CourseClonedModal = createReactClass({
   displayName: 'CourseClonedModal',
@@ -20,11 +21,10 @@ const CourseClonedModal = createReactClass({
     course: PropTypes.object
   },
 
-  mixins: [ValidationStore.mixin, CourseStore.mixin],
+  mixins: [CourseStore.mixin],
 
   getInitialState() {
     return {
-      error_message: ValidationStore.firstMessage(),
       course: this.props.course
     };
   },
@@ -44,13 +44,12 @@ const CourseClonedModal = createReactClass({
 
   storeDidChange() {
     let isPersisting = this.state.isPersisting;
-    if (!ValidationStore.getValidation('exists').valid) {
+    if (!getValidation('exists', this.props.validations).valid) {
       $('html, body').animate({ scrollTop: 0 });
       isPersisting = false;
     }
     return this.setState({
       isPersisting,
-      error_message: ValidationStore.firstMessage(),
       tempCourseId: CourseUtils.generateTempId(this.state.course)
     });
   },
@@ -67,7 +66,7 @@ const CourseClonedModal = createReactClass({
 
     // Term starts out blank and must be added.
     if (valueKey === 'term') {
-      ValidationActions.setValid('exists');
+      this.props.setValid('exists');
     }
   },
 
@@ -79,15 +78,18 @@ const CourseClonedModal = createReactClass({
     });
   },
 
+  updatePersistingStatus() {
+    return this.setState({ isPersisting: false });
+  },
   saveCourse() {
-    if (ValidationStore.isValid()) {
-      ValidationActions.setInvalid('exists', I18n.t('courses.creator.checking_for_uniqueness'), true);
+    if (isValid(this.props.validations, this.props.setInvalid)) {
+      this.props.setInvalid('exists', I18n.t('courses.creator.checking_for_uniqueness'), true);
       const updatedCourse = $.extend(true, {}, { course: this.state.course });
       updatedCourse.course.cloned_status = this.cloneCompletedStatus;
       const { slug } = this.state.course;
       const id = CourseUtils.generateTempId(this.state.course);
-      CourseActions.updateClonedCourse(updatedCourse, slug, id);
-      return this.setState({ isPersisting: true });
+      this.setState({ isPersisting: true });
+      CourseActions.updateClonedCourse(updatedCourse, slug, id, this.props.checkServer, this.updatePersistingStatus);
     }
   },
 
@@ -116,8 +118,8 @@ const CourseClonedModal = createReactClass({
     buttonClass += this.state.isPersisting ? ' working' : '';
 
     let errorMessage;
-    if (this.state.error_message) {
-      errorMessage = <div className="warning">{this.state.error_message}</div>;
+    if (firstMessage({ validations: this.props.validations, errorQueue: this.props.errorQueue })) {
+      errorMessage = <div className="warning">{firstMessage({ validations: this.props.validations, errorQueue: this.props.errorQueue })}</div>;
     }
 
     const dateProps = CourseDateUtils.dateProps(this.state.course);
@@ -348,7 +350,19 @@ const CourseClonedModal = createReactClass({
   }
 });
 
-export default CourseClonedModal;
+const mapStateToProps = state => ({
+  validations: state.validation.validations,
+  errorQueue: state.validation.errorQueue
+});
+
+const mapDispatchToProps = {
+  setValid,
+  setInvalid,
+  checkServer,
+};
+
+
+export default connect(mapStateToProps, mapDispatchToProps)(CourseClonedModal);
 
 function __guard__(value, transform) {
   return (typeof value !== 'undefined' && value !== null) ? transform(value) : undefined;

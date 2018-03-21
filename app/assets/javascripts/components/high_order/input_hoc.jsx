@@ -2,19 +2,27 @@ import React from 'react';
 import createReactClass from 'create-react-class';
 import uuid from 'uuid';
 import _ from 'lodash';
+import { connect } from 'react-redux';
 import shallowCompare from 'react-addons-shallow-compare';
-import ValidationStore from '../../stores/validation_store.js';
-import ValidationActions from '../../actions/validation_actions.js';
+import { initialize, setValid, setInvalid } from '../../actions/validation_actions.js';
+import { getValidation } from '../../utils/validation_utils.js';
 
-// This needs to be implemented as a mixin for state reasons.
-// If there's a good way for high-order components to set state on
-// children like this then let's use it.
+
+const mapStateToProps = state => ({
+  validations: state.validation.validations,
+  errorQueue: state.validation.errorQueue
+});
+
+const mapDispatchToProps = {
+  initialize,
+  setValid,
+  setInvalid,
+};
 
 const InputHOC = (Component) => {
-  return createReactClass({
+  const inputComponent = createReactClass({
     displayName: `Input${Component.displayName}`,
 
-    mixins: [ValidationStore.mixin],
     // value passed is HOC's state value
     getInitialState() {
       return { value: this.props.value };
@@ -27,9 +35,9 @@ const InputHOC = (Component) => {
           id: props.id || this.state.id || uuid.v4() // create a UUID if no id prop
         }
         , function () {
-          const valid = ValidationStore.getValidation(this.props.value_key);
+          const valid = getValidation(this.props.value_key, this.props.validations);
           if (valid && this.props.required && (!props.value || props.value === null || props.value.length === 0)) {
-            return ValidationActions.initialize(this.props.value_key, I18n.t('application.field_required'));
+            return this.props.initialize(this.props.value_key, I18n.t('application.field_required'));
           }
         }
       );
@@ -49,10 +57,6 @@ const InputHOC = (Component) => {
       }
     },
 
-    storeDidChange() {
-      return this.setState({ invalid: !ValidationStore.getValidation(this.props.value_key) });
-    },
-
     validate() {
       if (this.props.required || this.props.validation) {
         const filled = (this.state.value && this.state.value.length > 0);
@@ -66,12 +70,12 @@ const InputHOC = (Component) => {
           if (_.has(this.props, 'disableSave')) {
             this.props.disableSave(true);
           }
-          return ValidationActions.setInvalid(this.props.value_key, I18n.t('application.field_required'));
+          return this.props.setInvalid(this.props.value_key, I18n.t('application.field_required'));
         } else if (this.props.validation && !charcheck) {
           const invalidMessage = this.props.invalidMessage || I18n.t('application.field_invalid_characters');
-          return ValidationActions.setInvalid(this.props.value_key, invalidMessage);
+          return this.props.setInvalid(this.props.value_key, invalidMessage);
         }
-        return ValidationActions.setValid(this.props.value_key);
+        return this.props.setValid(this.props.value_key);
       }
     },
 
@@ -86,9 +90,11 @@ const InputHOC = (Component) => {
     render() {
       // Don't allow uneccessary props to pass through
       const { value, validation, onChange, invalidMessage, required, ...passThroughProps } = this.props;
-      return (<Component {...passThroughProps} {...this.state} onChange={this.onChange} onFocus={this.focus} onBlur={this.blur} />);
+      return (<Component {...passThroughProps} {...this.state} onChange={this.onChange} onFocus={this.focus} onBlur={this.blur} invalid={!getValidation(this.props.value_key, this.props.validations)} />);
     }
   });
+
+  return connect(mapStateToProps, mapDispatchToProps)(inputComponent);
 };
 
 export default InputHOC;
